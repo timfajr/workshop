@@ -3,33 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SheetStore 🛒</title>
-    
+    <title>Store</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-
+    <script src="config.js"></script> 
     <style>
         [x-cloak] { display: none !important; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800" 
-      x-data="shop()" 
-      x-init="fetchProducts()">
+<body class="bg-gray-50 text-gray-800" x-data="shop()" x-init="initApp()">
 
     <header class="bg-white shadow-sm sticky top-0 z-50">
         <div class="container mx-auto px-4 pt-4 pb-2 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-indigo-600">SheetStore 🛒</h1>
-            
+            <h1 class="text-2xl font-bold text-indigo-600" x-text="config.storeName"></h1>
             <button @click="cartOpen = true" class="relative p-2 text-gray-600 hover:text-indigo-600">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                <span class="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full" x-show="cart.length > 0" x-text="cart.length"></span>
+                <span class="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full" x-show="cartTotalQty > 0" x-text="cartTotalQty"></span>
             </button>
         </div>
-
         <div class="container mx-auto px-4 pb-4 overflow-x-auto whitespace-nowrap scrollbar-hide flex gap-2" x-show="!isLoading">
             <button @click="setCategory('All')" :class="selectedCategory === 'All' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="px-4 py-1.5 rounded-full text-sm font-medium transition-colors">All</button>
             <template x-for="cat in categories" :key="cat">
@@ -41,7 +36,7 @@
     <main x-show="!cartOpen && !checkoutOpen" class="container mx-auto px-4 py-8">
         <div x-show="isLoading" class="text-center py-20">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-            <p class="mt-4 text-gray-500">Loading products from local CSV...</p>
+            <p class="mt-4 text-gray-500">Loading...</p>
         </div>
 
         <div x-show="!isLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" x-cloak>
@@ -58,9 +53,24 @@
                             <h2 class="text-md font-bold mb-1 line-clamp-1" x-text="product.name"></h2>
                         </div>
                         <span class="text-[10px] text-gray-400 uppercase tracking-wide mb-2 block" x-text="product.category"></span>
-                        <p class="text-gray-600 text-xs mb-4 line-clamp-3 flex-1" x-text="product.description"></p>
+                        <p class="text-gray-600 text-xs mb-4 line-clamp-3" x-text="product.description"></p>
                         
-                        <div class="flex justify-between items-end mt-auto">
+                        <div class="mt-auto space-y-2 mb-4">
+                            <div x-show="product.sizes.length > 0">
+                                <label class="text-[10px] text-gray-500 uppercase font-bold">Size</label>
+                                <select x-model="product.selectedSize" class="w-full text-xs border border-gray-300 rounded px-2 py-1 mt-1">
+                                    <template x-for="size in product.sizes" :key="size"><option :value="size" x-text="size"></option></template>
+                                </select>
+                            </div>
+                            <div x-show="product.colors.length > 0">
+                                <label class="text-[10px] text-gray-500 uppercase font-bold">Warna</label>
+                                <select x-model="product.selectedColor" class="w-full text-xs border border-gray-300 rounded px-2 py-1 mt-1">
+                                    <template x-for="color in product.colors" :key="color"><option :value="color" x-text="color"></option></template>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-end border-t pt-4">
                             <div class="flex flex-col">
                                 <div class="flex flex-row gap-2 items-center" x-show="product.discount > 0">
                                     <span class="text-xs text-gray-400 line-through" x-text="'Rp. ' + formatNumber(product.original_price)"></span>
@@ -68,25 +78,21 @@
                                 </div>
                                 <span class="text-lg font-bold text-indigo-600" x-text="'Rp. ' + formatNumber(product.price)"></span>
                             </div>
-                            <button @click="addToCart(product)" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition shadow-sm font-medium text-sm">+ Keranjang</button>
+                            <button @click="addToCart(product)" :class="cartTotalQty >= 20 ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'" class="text-white px-4 py-2 rounded font-medium text-sm">+ Keranjang</button>
                         </div>
                     </div>
                 </div>
             </template>
         </div>
-
-        <div x-show="!isLoading && filteredProducts.length > 0" class="mt-12 flex flex-col items-center space-y-4" x-cloak>
-            <div x-show="filteredProducts.length === 0" class="text-center py-10 text-gray-500">No products found.</div>
-            <div x-show="filteredProducts.length > itemsPerPage" class="flex justify-center items-center space-x-4">
-                <button @click="prevPage()" :disabled="currentPage === 1" :class="currentPage === 1 ? 'opacity-50 cursor-not-allowed bg-gray-200 text-gray-400' : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-300'" class="px-4 py-2 border rounded-md shadow-sm text-sm font-medium transition-colors">&larr; Previous</button>
-                <span class="text-sm text-gray-600 font-medium">Page <span x-text="currentPage"></span> of <span x-text="totalPages"></span></span>
-                <button @click="nextPage()" :disabled="currentPage === totalPages" :class="currentPage === totalPages ? 'opacity-50 cursor-not-allowed bg-gray-200 text-gray-400' : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-300'" class="px-4 py-2 border rounded-md shadow-sm text-sm font-medium transition-colors">Next &rarr;</button>
-            </div>
+        <div x-show="!isLoading && filteredProducts.length > itemsPerPage" class="mt-12 flex justify-center items-center space-x-4" x-cloak>
+            <button @click="prevPage()" :disabled="currentPage === 1" :class="currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'" class="px-4 py-2 border rounded-md text-sm font-medium bg-white">&larr; Previous</button>
+            <span class="text-sm text-gray-600 font-medium">Page <span x-text="currentPage"></span> of <span x-text="totalPages"></span></span>
+            <button @click="nextPage()" :disabled="currentPage === totalPages" :class="currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'" class="px-4 py-2 border rounded-md text-sm font-medium bg-white">Next &rarr;</button>
         </div>
     </main>
 
-    <div x-show="cartOpen" class="relative z-50" aria-labelledby="slide-over-title" role="dialog" aria-modal="true" x-cloak>
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="cartOpen = false"></div>
+    <div x-show="cartOpen" class="relative z-50" x-cloak>
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="cartOpen = false"></div>
         <div class="fixed inset-0 overflow-hidden">
             <div class="absolute inset-0 overflow-hidden">
                 <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full md:pl-10">
@@ -94,50 +100,42 @@
                         <div class="flex h-full flex-col overflow-y-scroll bg-white shadow-xl">
                             <div class="flex-1 overflow-y-auto py-6 px-4 sm:px-6">
                                 <div class="flex items-start justify-between">
-                                    <h2 class="text-lg font-medium text-gray-900">Keranjang Belanja</h2>
-                                    <button @click="cartOpen = false" class="-m-2 p-2 text-gray-400 hover:text-gray-500">
-                                        <span class="sr-only">Close panel</span>
-                                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
+                                    <h2 class="text-lg font-medium text-gray-900">Keranjang</h2>
+                                    <button @click="cartOpen = false" class="-m-2 p-2 text-gray-400">✕</button>
                                 </div>
                                 <div class="mt-8">
-                                    <div class="flow-root">
-                                        <ul role="list" class="-my-6 divide-y divide-gray-200">
-                                            <template x-for="(item, index) in cart" :key="index">
-                                                <li class="flex py-6">
-                                                    <div class="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
-                                                        <img :src="item.image" class="h-full w-full object-cover object-center">
-                                                    </div>
-                                                    <div class="ml-4 flex flex-1 flex-col">
-                                                        <div>
-                                                            <div class="flex justify-between text-base font-medium text-gray-900">
-                                                                <h3 class="line-clamp-2 text-sm" x-text="item.name"></h3>
-                                                                <p class="ml-4 text-sm font-bold" x-text="'Rp. ' + formatNumber(item.price)"></p>
-                                                            </div>
+                                    <ul role="list" class="-my-6 divide-y divide-gray-200">
+                                        <template x-for="(item, index) in cart" :key="item.cartId">
+                                            <li class="flex py-6">
+                                                <div class="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border border-gray-200"><img :src="item.image" class="h-full w-full object-cover"></div>
+                                                <div class="ml-4 flex flex-1 flex-col">
+                                                    <div>
+                                                        <div class="flex justify-between text-base font-medium text-gray-900">
+                                                            <h3 class="line-clamp-2 text-sm" x-text="item.name"></h3>
+                                                            <p class="ml-4 text-sm font-bold" x-text="'Rp. ' + formatNumber(item.price)"></p>
                                                         </div>
-                                                        <div class="flex flex-1 items-end justify-between text-sm">
-                                                            <p class="text-gray-500">Qty 1</p>
-                                                            <button @click="removeFromCart(index)" type="button" class="font-medium text-red-600 hover:text-red-500">Hapus</button>
+                                                        <div class="mt-1 text-xs text-gray-500 flex gap-2">
+                                                            <span x-show="item.selectedSize" class="bg-gray-100 px-1 rounded" x-text="'Size: ' + item.selectedSize"></span>
+                                                            <span x-show="item.selectedColor" class="bg-gray-100 px-1 rounded" x-text="'Color: ' + item.selectedColor"></span>
                                                         </div>
                                                     </div>
-                                                </li>
-                                            </template>
-                                            <li x-show="cart.length === 0" class="py-10 text-center text-gray-500 flex flex-col items-center">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-                                                Keranjang masih kosong
+                                                    <div class="flex flex-1 items-end justify-between text-sm mt-2">
+                                                        <div class="flex items-center border border-gray-300 rounded"><button @click="decreaseQty(index)" class="px-2 font-bold">-</button><span class="px-2" x-text="item.quantity"></span><button @click="addToCart(item)" class="px-2 font-bold">+</button></div>
+                                                        <button @click="removeFromCart(index)" class="font-medium text-red-600">Hapus</button>
+                                                    </div>
+                                                </div>
                                             </li>
-                                        </ul>
-                                    </div>
+                                        </template>
+                                        <li x-show="cart.length === 0" class="py-10 text-center text-gray-500">Keranjang kosong</li>
+                                    </ul>
                                 </div>
                             </div>
                             <div class="border-t border-gray-200 py-6 px-4 sm:px-6">
-                                <div class="flex justify-between text-base font-medium text-gray-900">
-                                    <p>Subtotal</p>
-                                    <p x-text="'Rp. ' + formatNumber(cartTotal)"></p>
-                                </div>
-                                <div class="mt-6">
-                                    <button @click="cartOpen = false; checkoutOpen = true; selectedPayment = bankAccounts[0]" :disabled="cart.length === 0" :class="cart.length === 0 ? 'bg-gray-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'" class="w-full flex items-center justify-center rounded-md border border-transparent px-6 py-3 text-base font-medium text-white shadow-sm transition">Lanjut ke Pembayaran</button>
-                                </div>
+                                <div class="flex justify-between text-base font-medium text-gray-900"><p>Subtotal</p><p x-text="'Rp. ' + formatNumber(cartSubtotal)"></p></div>
+                                <div class="flex justify-between text-sm text-gray-600 mb-1" x-show="totalPackagingCost > 0"><p>Biaya Kemasan</p><p x-text="'Rp. ' + formatNumber(totalPackagingCost)"></p></div>
+                                <div x-show="totalWeight > 0" class="flex justify-between text-lg font-bold text-indigo-700 pt-2 border-t"><p>Total Estimasi</p><p x-text="'Rp. ' + formatNumber(cartGrandTotal)"></p></div>
+                                <div x-show="totalWeight === 0" class="flex justify-between text-lg font-bold text-indigo-700 pt-2 border-t"><p>Total Bayar</p><p x-text="'Rp. ' + formatNumber(cartGrandTotal)"></p></div>
+                                <div class="mt-6"><button @click="cartOpen = false; checkoutOpen = true; selectedPayment = config.bankAccounts[0]" :disabled="cart.length === 0" class="w-full flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-indigo-700">Lanjut ke Pembayaran</button></div>
                             </div>
                         </div>
                     </div>
@@ -146,76 +144,46 @@
         </div>
     </div>
 
-    <div x-show="checkoutOpen && !cartOpen" class="relative z-50" aria-labelledby="modal-title" role="dialog" aria-modal="true" x-cloak>
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="checkoutOpen = false"></div>
+    <div x-show="checkoutOpen && !cartOpen" class="relative z-50" x-cloak>
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="checkoutOpen = false"></div>
         <div class="fixed inset-0 z-10 overflow-y-auto">
             <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
                 <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
                     <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                        <div class="w-full">
-                            <h3 class="text-xl font-bold leading-6 text-gray-900 text-center mb-6" id="modal-title">Checkout</h3>
+                        <h3 class="text-xl font-bold leading-6 text-gray-900 text-center mb-6">Checkout</h3>
+                        <div class="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <h4 class="text-sm font-bold text-gray-800 mb-3">Data Pengiriman</h4>
+                            <div class="space-y-3">
+                                <input type="text" x-model="customer.name" class="w-full border px-3 py-2 rounded-md text-sm" placeholder="Nama Lengkap">
+                                <div class="grid grid-cols-2 gap-2" x-show="totalWeight > 0">
+                                    <select x-model="selectedProvinceId" @change="fetchRegencies(); updateShippingCost()" class="w-full border px-3 py-2 rounded-md text-sm bg-white"><option value="">Pilih Provinsi</option><template x-for="prov in provinces" :key="prov.id"><option :value="prov.id" x-text="prov.name"></option></template></select>
+                                    <select x-model="selectedRegencyId" :disabled="!selectedProvinceId" class="w-full border px-3 py-2 rounded-md text-sm bg-white disabled:bg-gray-100"><option value="">Pilih Kota</option><template x-for="reg in regencies" :key="reg.id"><option :value="reg.id" x-text="reg.name"></option></template></select>
+                                </div>
+                                <textarea x-model="customer.address" rows="2" class="w-full border px-3 py-2 rounded-md text-sm" placeholder="Alamat Lengkap"></textarea>
+                                <div x-show="totalWeight > 0"><select x-model="customer.courier" @change="updateShippingCost()" class="w-full border px-3 py-2 rounded-md text-sm bg-white"><option value="-">Pilih Kurir</option><option value="JNE">JNE</option><option value="J&T">J&T</option><option value="SiCepat">SiCepat</option><option value="Pos">Pos Indonesia</option></select></div>
+                            </div>
+                        </div>
+
+                        <h4 class="text-sm font-bold text-gray-800 mb-2">Pembayaran</h4>
+                        <div class="grid grid-cols-4 gap-2 mb-4">
+                            <template x-for="bank in config.bankAccounts" :key="bank.bank">
+                                <button @click="selectedPayment = bank; isQris = false" :class="(!isQris && selectedPayment.bank === bank.bank) ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-200'" class="flex flex-col items-center p-2 border rounded-lg h-20"><img x-show="bank.logo" :src="bank.logo" class="h-6 w-14 object-contain"/><span class="text-[10px]">Transfer</span></button>
+                            </template>
+                            <button @click="isQris = true; selectedPayment = null" :class="isQris ? 'border-indigo-600 bg-indigo-50' : 'border-gray-200'" class="flex flex-col items-center p-2 border rounded-lg h-20"><span class="text-[10px] font-bold mt-2">QRIS</span></button>
+                        </div>
+
+                        <div class="mb-4 p-4 border bg-blue-50 rounded-lg text-center">
+                            <div class="flex justify-between text-xs text-gray-600"><span>Total Berat</span><span class="font-bold" x-text="totalWeight.toFixed(2) + ' kg'"></span></div>
+                            <div class="flex justify-between text-xs text-gray-600" x-show="shippingCost > 0"><span>Ongkir (<span x-text="customer.courier"></span>)</span><span x-text="'Rp. ' + formatNumber(shippingCost)"></span></div>
+                            <div class="flex justify-between text-sm font-bold text-indigo-700 pt-2 border-t mt-2"><span>Total Bayar</span><span x-text="'Rp. ' + formatNumber(cartGrandTotal)"></span></div>
                             
-                            <div class="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <h4 class="text-sm font-bold text-gray-800 mb-3 flex items-center">Data Pemesan</h4>
-                                <div class="space-y-3">
-                                    <div>
-                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Nama Lengkap</label>
-                                        <input type="text" x-model="customer.name" class="w-full border border-gray-300 px-3 py-2 rounded-md text-sm" placeholder="Contoh: Budi Santoso">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Alamat Lengkap</label>
-                                        <textarea x-model="customer.address" rows="2" class="w-full border border-gray-300 px-3 py-2 rounded-md text-sm" placeholder="Jalan, RT/RW, Kecamatan, Kota..."></textarea>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <h4 class="text-sm font-bold text-gray-800 mb-2">Metode Pembayaran</h4>
-                            <div class="grid grid-cols-4 gap-2 mb-4">
-                                <template x-for="bank in bankAccounts" :key="bank.bank">
-                                    <button @click="selectedPayment = bank; isQris = false" :class="(!isQris && selectedPayment.bank === bank.bank) ? 'border-indigo-600 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-600' : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'" class="flex flex-col items-center justify-center p-2 border rounded-lg transition-all h-20 bg-white">
-                                        <img x-show="bank.logo" :src="bank.logo" :alt="bank.bank" class="h-6 w-14 object-contain mb-1"/>
-                                        <span x-show="!bank.logo" class="font-bold text-sm" x-text="bank.bank"></span>
-                                        <span class="text-[10px] text-gray-500">Transfer</span>
-                                    </button>
-                                </template>
-                                <button @click="isQris = true; selectedPayment = null" :class="isQris ? 'border-indigo-600 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-600' : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'" class="flex flex-col items-center justify-center p-2 border rounded-lg transition-all h-20 bg-white">
-                                    <span class="text-[10px] text-gray-500 font-bold">QRIS</span>
-                                </button>
-                            </div>
-
-                            <div class="mb-4 p-4 border border-blue-200 bg-blue-50 rounded-lg shadow-sm flex flex-col justify-center">
-                                <div class="text-center mb-3">
-                                    <p class="text-xs text-gray-500 uppercase tracking-wide">Total Tagihan</p>
-                                    <p class="text-2xl font-bold text-indigo-700" x-text="'Rp. ' + formatNumber(cartTotal)"></p>
-                                </div>
-                                <hr class="border-blue-200 mb-3">
-                                <template x-if="!isQris && selectedPayment">
-                                    <div class="text-center">
-                                        <p class="text-xs text-gray-600 mb-1">Silakan transfer ke <span class="font-bold" x-text="selectedPayment.bank"></span></p>
-                                        <div class="flex items-center justify-between bg-white px-3 py-2 rounded border border-blue-100 mb-1">
-                                            <span class="font-mono font-bold text-gray-800 select-all" x-text="selectedPayment.number"></span>
-                                            <button @click="copyToClipboard(selectedPayment.number)" class="text-xs text-indigo-600 hover:text-indigo-800 font-bold uppercase ml-2">Salin</button>
-                                        </div>
-                                        <p class="text-xs text-gray-500" x-text="'a.n. ' + selectedPayment.name"></p>
-                                    </div>
-                                </template>
-                                <template x-if="isQris">
-                                    <div class="text-center">
-                                        <p class="text-xs text-gray-600 mb-2">Scan QR untuk membayar</p>
-                                        <div class="flex justify-center bg-white p-2 rounded inline-block mx-auto">
-                                            <img :src="qrisUrl" alt="QRIS Code" class="h-32 w-32 object-contain">
-                                        </div>
-                                    </div>
-                                </template>
-                            </div>
-                            <p class="text-[10px] text-gray-400 text-center leading-tight">Klik tombol konfirmasi di bawah untuk mengirim detail pesanan ke WhatsApp Admin.</p>
+                            <template x-if="!isQris && selectedPayment"><div class="pt-2"><p class="text-xs">Transfer ke <span class="font-bold" x-text="selectedPayment.bank"></span></p><span class="font-mono font-bold select-all" x-text="selectedPayment.number"></span><p class="text-xs" x-text="'a.n. ' + selectedPayment.name"></p></div></template>
+                            <template x-if="isQris"><div class="pt-2"><img :src="config.qrisImageUrl" class="h-32 w-32 object-contain mx-auto"></div></template>
                         </div>
                     </div>
                     <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                        <a :href="customer.name && customer.address ? whatsappLink : '#'" :target="customer.name && customer.address ? '_blank' : ''" :class="{'opacity-50 cursor-not-allowed bg-gray-400': !customer.name || !customer.address, 'bg-green-600 hover:bg-green-700': customer.name && customer.address}" class="inline-flex w-full justify-center rounded-md border border-transparent px-4 py-2 text-base font-medium text-white shadow-sm focus:outline-none sm:ml-3 sm:w-auto sm:text-sm transition-all items-center">
-                            Konfirmasi via WhatsApp
-                        </a>
-                        <button @click="checkoutOpen = false" type="button" class="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">Batal</button>
+                        <a :href="isOrderValid ? whatsappLink : '#'" :target="isOrderValid ? '_blank' : ''" :class="isOrderValid ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'" class="inline-flex w-full justify-center rounded-md border border-transparent px-4 py-2 text-base font-medium text-white shadow-sm sm:ml-3 sm:w-auto sm:text-sm">Konfirmasi WhatsApp</a>
+                        <button @click="checkoutOpen = false" class="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">Batal</button>
                     </div>
                 </div>
             </div>
@@ -225,140 +193,111 @@
     <script>
         function shop() {
             return {
-                isLoading: true,
-                cartOpen: false,
-                checkoutOpen: false,
-                products: [],
-                cart: [],
-                categories: [],
-                selectedCategory: 'All',
-                currentPage: 1,
-                itemsPerPage: 6,
-                selectedPayment: null, 
-                isQris: false,
-                customer: { name: '', address: '' },
-                
-                // CONFIGURATION
-                bankAccounts: [
-                    { bank: "BCA", number: "1234567890", name: "Toko Saya" , logo: "https://upload.wikimedia.org/wikipedia/commons/5/5c/Bank_Central_Asia.svg" },
-                    { bank: "BRI", number: "0987654321", name: "Toko Saya", logo: "https://upload.wikimedia.org/wikipedia/commons/6/68/BANK_BRI_logo.svg" },
-                    { bank: "MANDIRI", number: "1122334455", name: "Toko Saya" , logo: "https://upload.wikimedia.org/wikipedia/commons/a/ad/Bank_Mandiri_logo_2016.svg" }
-                ],
-                qrisUrl: "https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg", 
-                url: 'product.csv', 
+                config: STORE_CONFIG, // Load from config.js
+                isLoading: true, cartOpen: false, checkoutOpen: false,
+                products: [], cart: [], categories: [], selectedCategory: 'All',
+                currentPage: 1, itemsPerPage: 6,
+                selectedPayment: null, isQris: false, shippingCost: 0,
+                customer: { name: '', address: '', courier: '-' },
+                provinces: [], regencies: [], selectedProvinceId: '', selectedRegencyId: '',
+
+                async initApp() {
+                    await this.fetchProducts();
+                    await this.fetchProvinces();
+                    this.selectedPayment = this.config.bankAccounts[0];
+                },
 
                 async fetchProducts() {
                     try {
-                        const response = await fetch(this.url);
-                        if (!response.ok) throw new Error("Failed to load product.csv");
+                        const response = await fetch(this.config.productCsvUrl);
+                        if (!response.ok) throw new Error("Gagal load CSV");
                         const csvText = await response.text();
                         const data = this.csvToJson(csvText);
-                        
                         this.products = data.map(item => {
                             const original = parseFloat(item.price) || 0;
                             const discountPercent = parseFloat(item.discount) || 0;
-                            const final = discountPercent > 0 ? (original * (1 - discountPercent/100)) : original; // Keep as number!
-
                             return {
-                                id: item.id,
-                                name: item.name,
-                                original_price: original,
-                                discount: discountPercent,
-                                price: final, // Store as number for math
-                                description: item.description,
-                                image: item.image,
-                                category: item.category 
+                                id: item.id, name: item.name, original_price: original, discount: discountPercent,
+                                price: discountPercent > 0 ? (original * (1 - discountPercent/100)) : original,
+                                description: item.description, image: item.image, category: item.category,
+                                berat: parseFloat(item.berat) || 0, ongkir: parseInt(item.ongkir) || 0, kemasan: parseFloat(item.kemasan) || 0,
+                                sizes: item.size ? item.size.split(',').map(s => s.trim()).filter(s => s) : [],
+                                colors: item.warna ? item.warna.split(',').map(c => c.trim()).filter(c => c) : [],
+                                selectedSize: null, selectedColor: null
                             }
                         });
-                        
+                        this.products.forEach(p => { if(p.sizes.length) p.selectedSize = p.sizes[0]; if(p.colors.length) p.selectedColor = p.colors[0]; });
                         this.categories = [...new Set(this.products.map(p => p.category).filter(c => c))].sort();
-                        this.selectedPayment = this.bankAccounts[0];
-                    } catch (error) {
-                        console.error('Error fetching products:', error);
-                        alert("Error: Could not load products. Ensure you are running on a local server (Live Server).");
-                    } finally {
-                        this.isLoading = false;
-                    }
+                    } catch (error) { alert("Error loading CSV"); } finally { this.isLoading = false; }
                 },
 
-                // 1. NEW HELPER: Format Number to "10.000"
-                formatNumber(num) {
-                    return new Intl.NumberFormat('id-ID').format(num);
+                async fetchProvinces() { try { const res = await fetch('https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json'); this.provinces = await res.json(); } catch(e){} },
+                async fetchRegencies() { if(!this.selectedProvinceId)return; try { const res = await fetch(`https://www.emsifa.com/api-wilayah-indonesia/api/regencies/${this.selectedProvinceId}.json`); this.regencies = await res.json(); this.selectedRegencyId=''; } catch(e){} },
+
+                updateShippingCost() {
+                    if (this.totalWeight === 0) { this.shippingCost = 0; return; }
+                    if (!this.selectedProvinceId || this.customer.courier === '-') { this.shippingCost = 0; return; }
+                    let baseRate = this.config.provinceBaseRates[this.selectedProvinceId] || this.config.defaultOngkirRate;
+                    if (this.customer.courier === 'Pos') baseRate *= 0.9;
+                    const weightInKg = Math.ceil(this.totalWeight);
+                    this.shippingCost = baseRate * (weightInKg < 1 ? 1 : weightInKg);
                 },
 
-                setCategory(cat) {
-                    this.selectedCategory = cat;
-                    this.currentPage = 1; 
-                },
-
-                get filteredProducts() {
-                    if (this.selectedCategory === 'All') return this.products;
-                    return this.products.filter(p => p.category === this.selectedCategory);
-                },
-
+                formatNumber(num) { return new Intl.NumberFormat('id-ID').format(num); },
+                setCategory(cat) { this.selectedCategory = cat; this.currentPage = 1; },
+                get filteredProducts() { return this.selectedCategory === 'All' ? this.products : this.products.filter(p => p.category === this.selectedCategory); },
                 get totalPages() { return Math.ceil(this.filteredProducts.length / this.itemsPerPage); },
-
-                get paginatedProducts() {
-                    const start = (this.currentPage - 1) * this.itemsPerPage;
-                    const end = start + this.itemsPerPage;
-                    return this.filteredProducts.slice(start, end);
-                },
-
+                get paginatedProducts() { return this.filteredProducts.slice((this.currentPage - 1) * this.itemsPerPage, this.currentPage * this.itemsPerPage); },
                 nextPage() { if (this.currentPage < this.totalPages) { this.currentPage++; window.scrollTo({ top: 0, behavior: 'smooth' }); } },
                 prevPage() { if (this.currentPage > 1) { this.currentPage--; window.scrollTo({ top: 0, behavior: 'smooth' }); } },
 
-                csvToJson(csv) {
-                    const lines = csv.trim().split("\n");
-                    const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ''));
-                    return lines.slice(1).map(line => {
-                        const rowValues = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                        let obj = {};
-                        headers.forEach((header, i) => {
-                            let val = rowValues[i] ? rowValues[i].trim() : '';
-                            if (val.startsWith('"') && val.endsWith('"')) val = val.substring(1, val.length - 1);
-                            obj[header] = val;
-                        });
-                        return obj;
-                    });
-                },
+                csvToJson(csv) { const lines = csv.trim().split("\n"); const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, '')); return lines.slice(1).map(line => { const rowValues = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); let obj = {}; headers.forEach((header, i) => { let val = rowValues[i] ? rowValues[i].trim() : ''; if (val.startsWith('"') && val.endsWith('"')) val = val.substring(1, val.length - 1); obj[header] = val; }); return obj; }); },
 
-                addToCart(product) { this.cart.push(product); },
-                removeFromCart(index) { this.cart.splice(index, 1); },
-                
-                copyToClipboard(text) {
-                    navigator.clipboard.writeText(text);
-                    const originalText = event.target.innerText;
-                    event.target.innerText = "Disalin!";
-                    setTimeout(() => { event.target.innerText = originalText; }, 1500);
+                addToCart(product) {
+                    if (this.cart.length >= 20) { alert("Keranjang penuh (Max 20 tipe)."); return; }
+                    const cartId = `${product.id}-${product.selectedSize||''}-${product.selectedColor||''}`;
+                    const existing = this.cart.find(i => i.cartId === cartId);
+                    if(existing) existing.quantity++;
+                    else this.cart.push({ ...product, cartId: cartId, quantity: 1 });
+                    this.updateShippingCost();
                 },
+                decreaseQty(index) { if (this.cart[index].quantity > 1) this.cart[index].quantity--; else this.cart.splice(index, 1); this.updateShippingCost(); },
+                removeFromCart(index) { this.cart.splice(index, 1); this.updateShippingCost(); },
+                copyToClipboard(text) { navigator.clipboard.writeText(text); alert("Disalin!"); },
 
-                get cartTotal() {
-                    // Returns raw NUMBER for calculation
-                    return this.cart.reduce((total, item) => total + item.price, 0);
+                get provinceName() { const p = this.provinces.find(p => p.id === this.selectedProvinceId); return p ? p.name : ''; },
+                get regencyName() { const r = this.regencies.find(r => r.id === this.selectedRegencyId); return r ? r.name : ''; },
+                get cartSubtotal() { return this.cart.reduce((t, i) => t + (i.price * i.quantity), 0); },
+                get cartTotalQty() { return this.cart.reduce((t, i) => t + i.quantity, 0); },
+                get totalWeight() { return this.cart.reduce((t, i) => i.ongkir === 1 ? t + (i.berat * i.quantity) : t, 0); },
+                get totalPackagingCost() { return this.cart.reduce((t, i) => t + (i.kemasan * i.quantity), 0); },
+                get cartGrandTotal() { return this.cartSubtotal + this.totalPackagingCost + this.shippingCost; },
+
+                get isOrderValid() { 
+                    const basic = this.customer.name && this.customer.address;
+                    if(this.totalWeight > 0) return basic && this.selectedProvinceId && this.selectedRegencyId && this.customer.courier !== '-';
+                    return basic; 
                 },
 
                 get whatsappLink() {
-                    const phoneNumber = "62882000710173"; 
-                    let paymentMethodName = this.isQris ? "QRIS" : (this.selectedPayment ? this.selectedPayment.bank : "Unknown");
-
-                    let message = `*Halo Admin! Saya ingin konfirmasi pesanan baru.*%0a%0a`;
-                    message += `*DATA PEMESAN*%0a`;
-                    message += `Nama: ${this.customer.name}%0a`;
-                    message += `Alamat: ${this.customer.address}%0a%0a`;
-                    message += `*PEMBAYARAN*%0a`;
-                    message += `Metode: ${paymentMethodName}%0a`;
+                    let msg = `*Halo Admin! Saya ingin konfirmasi pesanan baru.* \n\n *DATA PEMESAN*\nNama: ${this.customer.name}\n`;
+                    if(this.totalWeight > 0) msg += `Lokasi: ${this.regencyName}, ${this.provinceName}\n`;
+                    msg += `Alamat: ${this.customer.address}\n\n`;
                     
-                    // FORMATTED PRICE IN WHATSAPP
-                    message += `Total Transfer: *Rp. ${this.formatNumber(this.cartTotal)}*%0a%0a`;
-
-                    message += `*DETAIL ORDER*%0a`;
-                    this.cart.forEach(item => {
-                        // FORMATTED PRICE PER ITEM
-                        message += `- ${item.name} @ Rp. ${this.formatNumber(item.price)}%0a`;
+                    if(this.totalWeight > 0) {
+                        msg += `*PENGIRIMAN*\nKurir: ${this.customer.courier}\nBerat: ${this.totalWeight.toFixed(2)} kg\nOngkir (Est): Rp ${this.formatNumber(this.shippingCost)}\n\n`;
+                    }
+                    
+                    msg += `🛒 *ORDER*\n`;
+                    this.cart.forEach(i => {
+                        let vars = []; if(i.selectedSize) vars.push(i.selectedSize); if(i.selectedColor) vars.push(i.selectedColor);
+                        msg += `- SKU:${i.id} ${vars.length?`[${vars.join(',')}]`:''} (${i.quantity}x) @ ${this.formatNumber(i.price * i.quantity)}\n`;
                     });
+
+                    msg += `\n💰 *TOTAL: Rp ${this.formatNumber(this.cartGrandTotal)}*\n`;
+                    msg += `Metode: ${this.isQris ? 'QRIS' : this.selectedPayment.bank}\n`;
                     
-                    message += `%0aMohon segera diproses ya, Terima kasih!`;
-                    return `https://wa.me/${phoneNumber}?text=${message}`;
+                    return `https://wa.me/${this.config.whatsappNumber}?text=${encodeURIComponent(msg)}`;
                 }
             }
         }

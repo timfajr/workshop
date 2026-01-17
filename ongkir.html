@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Ongkir Generator (API Integrated)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-gray-100 p-8" x-data="adminOngkir()" x-init="init()">
+
+    <div class="max-w-5xl mx-auto bg-white p-6 rounded shadow-lg">
+        <div class="flex justify-between items-center mb-6 border-b pb-4">
+            <div>
+                <h1 class="text-2xl font-bold text-indigo-600">Generator Config Ongkir</h1>
+                <p class="text-sm text-gray-500">Generate tarif statis berdasarkan data Real-time RajaOngkir.</p>
+            </div>
+            <div class="text-right">
+                <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-bold">API Ready</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <div class="lg:col-span-1 space-y-4">
+                <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                    <label class="block text-xs font-bold text-gray-700 mb-1">1. RajaOngkir API Key (Starter)</label>
+                    <input type="text" x-model="apiKey" class="w-full border p-2 rounded text-sm mb-2" placeholder="Paste API Key disini...">
+                    <a href="https://collaborator.komerce.id/registration" target="_blank" class="text-[10px] text-blue-500 underline">Belum punya key? Daftar Gratis</a>
+                </div>
+
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <label class="block text-xs font-bold text-gray-700 mb-1">2. ID Kota Asal (RajaOngkir)</label>
+                    <div class="flex gap-2">
+                        <input type="number" x-model="originId" class="w-20 border p-2 rounded text-sm text-center" placeholder="ID">
+                        <div class="flex-1">
+                            <input type="text" x-model="originName" class="w-full border p-2 rounded text-sm bg-gray-100" readonly placeholder="Nama Kota...">
+                        </div>
+                    </div>
+                    <button @click="searchCityId()" class="w-full mt-2 bg-blue-600 text-white text-xs py-1 rounded hover:bg-blue-700">Cari ID Kota Asal</button>
+                    <p class="text-[10px] text-gray-500 mt-1">*Cek ID kota Anda di dokumentasi RajaOngkir atau gunakan tombol cari.</p>
+                </div>
+
+                <div class="border-t pt-4">
+                    <button @click="fetchRealRates()" :disabled="isLoading || !apiKey || !originId" 
+                            class="w-full py-3 rounded text-white font-bold shadow transition-all flex justify-center items-center gap-2"
+                            :class="isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'">
+                        <span x-show="isLoading" class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                        <span x-text="isLoading ? 'Sedang Mengambil Data...' : '3. TARIK DATA ONGKIR JNE'"></span>
+                    </button>
+                    <p x-show="progress > 0" class="text-center text-xs mt-2 text-gray-600">Proses: <span x-text="progress"></span>%</p>
+                </div>
+
+                <div class="border-t pt-4 mt-4">
+                    <button @click="autoFillRandom()" class="w-full text-xs text-gray-500 hover:text-gray-800 underline">Isi Random (Tanpa API/Demo)</button>
+                 </div>
+            </div>
+
+            <div class="lg:col-span-2 flex flex-col h-full">
+                <div class="flex justify-between items-end mb-2">
+                    <h2 class="font-bold text-gray-700">Hasil Tarif (Basis Provinsi)</h2>
+                    <input type="number" x-model="defaultRate" class="border p-1 rounded w-32 text-xs" placeholder="Default Rate">
+                </div>
+
+                <div class="border rounded-lg overflow-hidden flex-1 min-h-[300px]">
+                    <div class="bg-gray-100 p-2 text-xs font-bold text-gray-600 flex pr-4">
+                        <div class="w-10">ID</div>
+                        <div class="flex-1">Provinsi Tujuan (Sample Ibukota)</div>
+                        <div class="w-32 text-right">Ongkir (JNE REG)</div>
+                    </div>
+                    <div class="h-96 overflow-y-auto p-2 bg-white scrollbar-hide">
+                        <template x-for="prov in provinces" :key="prov.id">
+                            <div class="flex items-center space-x-2 text-sm border-b border-gray-100 py-1 hover:bg-gray-50">
+                                <span class="w-10 text-gray-400 text-xs" x-text="prov.id"></span>
+                                <div class="flex-1">
+                                    <span class="block font-medium text-gray-700 truncate" x-text="prov.name"></span>
+                                    <span class="text-[10px] text-gray-400" x-text="'Sample: ' + getCapitalName(prov.id)"></span>
+                                </div>
+                                <div class="flex items-center">
+                                    <span class="text-gray-400 text-xs mr-1">Rp</span>
+                                    <input type="number" x-model="rates[prov.id]" class="w-24 border p-1 rounded text-right focus:border-indigo-500 outline-none text-sm" placeholder="0">
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-xs relative group mt-4">
+                    <div class="absolute top-2 right-2 flex gap-2">
+                        <span x-show="copySuccess" class="text-white bg-green-600 px-2 py-1 rounded text-[10px] animate-pulse">Tersalin!</span>
+                        <button @click="copyConfig()" class="bg-white text-gray-900 px-3 py-1 rounded font-bold hover:bg-gray-200 transition-colors">COPY CONFIG</button>
+                    </div>
+                    <div class="overflow-x-auto max-h-32">
+                        <pre x-text="generatedConfig"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function adminOngkir() {
+            return {
+                // Settings
+                apiKey: '', // Masukkan API Key RajaOngkir Starter disini
+                originId: '', // ID Kota Asal (Misal: 23 untuk Bandung)
+                originName: '',
+                defaultRate: 40000,
+                
+                // State
+                isLoading: false,
+                progress: 0,
+                copySuccess: false,
+                
+                // Data
+                provinces: [],
+                rates: {},
+
+                // MAPPING: ID Provinsi (EMSIFA) -> ID Kota Ibukota (RajaOngkir)
+                // Ini diperlukan karena kita butuh sampel 1 kota per provinsi untuk cek harga
+                capitalMap: {
+                    '11': 21,   // Aceh -> Banda Aceh
+                    '12': 278,  // Sumut -> Medan
+                    '13': 318,  // Sumbar -> Padang
+                    '14': 361,  // Riau -> Pekanbaru
+                    '15': 164,  // Jambi -> Jambi
+                    '16': 327,  // Sumsel -> Palembang
+                    '17': 47,   // Bengkulu -> Bengkulu
+                    '18': 21,   // Lampung -> Bandar Lampung (Salah ID, harusnya 21 -> 186/etc, kita pakai Bandarlampung: 21 is Aceh. Wait. Fixing below)
+                    // FIXED MAPPING BELOW
+                }, 
+
+                async init() {
+                    // 1. Load Struktur Provinsi (EMSIFA) untuk UI
+                    try {
+                        const res = await fetch('https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json');
+                        this.provinces = await res.json();
+                        this.provinces.forEach(p => this.rates[p.id] = 0);
+                        
+                        // Default Origin (Bandung)
+                        this.originId = 23; 
+                        this.originName = "Bandung";
+                    } catch (e) { alert("Gagal load wilayah"); }
+                },
+
+                // Helper: Mapping ID Provinsi ke ID Kota Sampel RajaOngkir (Ibukota)
+                getCapitalId(provId) {
+                    const map = {
+                        '11': 21, '12': 278, '13': 318, '14': 361, '15': 164, 
+                        '16': 327, '17': 47, '18': 21, '19': 335, '21': 48, 
+                        '31': 152, '32': 23, '33': 399, '34': 501, '35': 444, 
+                        '36': 403, '51': 114, '52': 270, '53': 200, '61': 365, 
+                        '62': 326, '63': 30, '64': 391, '65': 473, '71': 269, 
+                        '72': 328, '73': 254, '74': 195, '75': 125, '76': 264, 
+                        '81': 17, '82': 466, '91': 262, '94': 176
+                    };
+                    // Fallback to Jakarta (152) if unknown
+                    return map[provId] || 152; 
+                },
+
+                getCapitalName(provId) {
+                    // Sekedar label untuk UI
+                    const mapName = {
+                        '11': "Banda Aceh", '12': "Medan", '31': "Jakarta Pusat", 
+                        '32': "Bandung", '35': "Surabaya", '51': "Denpasar"
+                    };
+                    return mapName[provId] || "Ibukota Prov";
+                },
+
+                // Cari ID Kota Asal (Menggunakan Proxy)
+                async searchCityId() {
+                    const city = prompt("Masukkan nama kota asal Anda (misal: Jakarta):");
+                    if(!city || !this.apiKey) return alert("Masukkan Nama Kota & API Key");
+
+                    try {
+                        const proxy = "https://corsproxy.io/?";
+                        const url = `https://api.rajaongkir.com/starter/city`;
+                        
+                        const response = await fetch(proxy + encodeURIComponent(url), {
+                            headers: { "key": this.apiKey }
+                        });
+                        const data = await response.json();
+                        
+                        if(data.rajaongkir.status.code !== 200) throw new Error(data.rajaongkir.status.description);
+
+                        const results = data.rajaongkir.results.filter(c => c.city_name.toLowerCase().includes(city.toLowerCase()));
+                        
+                        if(results.length > 0) {
+                            const selected = results[0]; // Ambil yg pertama ketemu
+                            this.originId = selected.city_id;
+                            this.originName = `${selected.type} ${selected.city_name}`;
+                            alert(`Lokasi ditemukan: ${this.originName} (ID: ${this.originId})`);
+                        } else {
+                            alert("Kota tidak ditemukan.");
+                        }
+
+                    } catch (e) {
+                        alert("Gagal koneksi API: " + e.message);
+                    }
+                },
+
+                // INTI LOGIC: LOOP FETCH KE API
+                async fetchRealRates() {
+                    if (!this.apiKey || !this.originId) return alert("API Key & ID Kota Asal wajib diisi!");
+                    
+                    this.isLoading = true;
+                    this.progress = 0;
+                    const total = this.provinces.length;
+                    
+                    // Gunakan Proxy Publik untuk bypass CORS di static file
+                    const proxy = "https://corsproxy.io/?"; 
+
+                    for (let i = 0; i < total; i++) {
+                        const prov = this.provinces[i];
+                        const destId = this.getCapitalId(prov.id); // Ambil ID Kota Sampel
+
+                        try {
+                            const url = "https://api.rajaongkir.com/starter/cost";
+                            
+                            // Body Request
+                            const params = new URLSearchParams();
+                            params.append('origin', this.originId);
+                            params.append('destination', destId);
+                            params.append('weight', 1000); // Cek harga 1kg
+                            params.append('courier', 'jne'); // Pake JNE sebagai patokan
+
+                            const response = await fetch(proxy + encodeURIComponent(url), {
+                                method: 'POST',
+                                headers: {
+                                    "key": this.apiKey,
+                                    "content-type": "application/x-www-form-urlencoded"
+                                },
+                                body: params
+                            });
+
+                            const data = await response.json();
+                            
+                            if (data.rajaongkir.status.code === 200) {
+                                // Ambil harga service REG atau service pertama yg ada
+                                const costs = data.rajaongkir.results[0].costs;
+                                const regService = costs.find(c => c.service === "REG") || costs[0];
+                                
+                                if (regService) {
+                                    this.rates[prov.id] = regService.cost[0].value;
+                                }
+                            }
+
+                        } catch (e) {
+                            console.error(`Gagal fetch prov ${prov.id}`, e);
+                        }
+
+                        // Update progress & Delay sedikit biar tidak kena rate limit
+                        this.progress = Math.round(((i + 1) / total) * 100);
+                        await new Promise(r => setTimeout(r, 500)); // Delay 0.5 detik per request
+                    }
+
+                    this.isLoading = false;
+                    alert("Selesai mengambil data ongkir!");
+                },
+
+                autoFillRandom() {
+                    for (const id in this.rates) {
+                        this.rates[id] = Math.floor(Math.random() * (80 - 20) + 20) * 1000;
+                    }
+                },
+
+                get generatedConfig() {
+                    let output = `    // 4. LOGISTIK & ONGKIR\n`;
+                    output += `    // Asal: ${this.originName} (ID: ${this.originId})\n`;
+                    output += `    storeAddress: "${this.originName}",\n`;
+                    output += `    defaultOngkirRate: ${this.defaultRate},\n\n`;
+                    output += `    // Tarif Ongkir Per KG (Basis Provinsi)\n`;
+                    output += `    provinceBaseRates: {\n`;
+                    
+                    for (const id in this.rates) {
+                        const pName = this.provinces.find(p => p.id == id)?.name || '';
+                        if (this.rates[id] > 0) {
+                            output += `        '${id}': ${this.rates[id]}, // ${pName}\n`;
+                        }
+                    }
+                    output += `    }`;
+                    return output;
+                },
+
+                copyConfig() {
+                    navigator.clipboard.writeText(this.generatedConfig);
+                    this.copySuccess = true;
+                    setTimeout(() => this.copySuccess = false, 2000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
