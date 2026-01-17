@@ -420,15 +420,15 @@
 
                     let message = `*Halo Admin! Saya ingin konfirmasi pesanan baru.*%0a%0a`;
                     
-                    message += `👤 *DATA PEMESAN*%0a`;
+                    message += `*DATA PEMESAN*%0a`;
                     message += `Nama: ${this.customer.name}%0a`;
                     message += `Alamat: ${this.customer.address}%0a%0a`;
 
-                    message += `💳 *PEMBAYARAN*%0a`;
+                    message += `*PEMBAYARAN*%0a`;
                     message += `Metode: ${paymentMethodName}%0a`;
                     message += `Total Transfer: *Rp.${this.cartTotal}*%0a%0a`;
 
-                    message += `🛒 *DETAIL ORDER*%0a`;
+                    message += `*DETAIL ORDER*%0a`;
                     this.cart.forEach(item => {
                         message += `- ${item.name} @ Rp.${item.price}%0a`;
                     });
